@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sponsor Page Stats</title>
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --orange: #F76902;
+      --bar: #E05E00;        /* single-series bar color, passes contrast on white */
+      --ink: #1A1A1A;
+      --ink-soft: #5A5A5A;
+      --muted: #8A8A8A;
+      --paper: #FAF7F3;
+      --card: #FFFFFF;
+      --line: #ECE5DD;
+      --grid: #F0EBE5;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bar: #FF8A3D;
+        --ink: #F3EFEA;
+        --ink-soft: #C2BBB3;
+        --muted: #8F8880;
+        --paper: #121110;
+        --card: #1C1A18;
+        --line: #2E2A26;
+        --grid: #262320;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Inter", system-ui, sans-serif; background: var(--paper); color: var(--ink); line-height: 1.5; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 16px 48px; }
+
+    header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 12px; margin-bottom: 24px; }
+    h1 { font-family: "Archivo Black", sans-serif; font-size: clamp(1.6rem, 4vw, 2.2rem); line-height: 1.1; }
+    .sub { color: var(--ink-soft); font-size: 0.92rem; }
+    .live { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--ink-soft); }
+    .live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #2E9E5B; }
+
+    /* stat tiles */
+    .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .tile { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; }
+    .tile .label { font-size: 0.85rem; color: var(--ink-soft); font-weight: 600; }
+    .tile .num { font-family: "Archivo Black", sans-serif; font-size: 2.2rem; line-height: 1.1; margin-top: 4px; }
+    .tile .hint { font-size: 0.8rem; color: var(--muted); }
+
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
+
+    .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px; margin-bottom: 16px; min-width: 0; }
+    .panel h2 { font-size: 1rem; margin-bottom: 4px; }
+    .panel .desc { font-size: 0.85rem; color: var(--ink-soft); margin-bottom: 16px; }
+    .empty { color: var(--muted); font-size: 0.9rem; padding: 12px 0; }
+
+    /* horizontal bar list (clicks by sponsor) */
+    .hbar { display: grid; grid-template-columns: minmax(110px, 160px) 1fr 40px; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 0.9rem; }
+    .hbar .track { height: 18px; position: relative; }
+    .hbar .fill { height: 100%; background: var(--bar); border-radius: 0 4px 4px 0; min-width: 2px; }
+    .hbar .val { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+    /* column chart (views per day) */
+    .cols { position: relative; height: 180px; display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid var(--line);
+      background: repeating-linear-gradient(to top, transparent 0 44px, var(--grid) 44px 45px); }
+    .col { flex: 1; height: 100%; display: flex; align-items: flex-end; cursor: default; }
+    .col .bar { width: 100%; background: var(--bar); border-radius: 4px 4px 0 0; min-height: 0; }
+    .col:hover .bar, .col:focus .bar { filter: brightness(1.15); }
+    .xlabels { display: flex; gap: 2px; margin-top: 6px; font-size: 0.7rem; color: var(--muted); }
+    .xlabels span { flex: 1; text-align: center; }
+    .tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--paper); font-size: 0.8rem; padding: 6px 10px; border-radius: 8px; opacity: 0; transition: opacity 0.1s; z-index: 10; }
+
+    /* tables */
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th { text-align: left; font-weight: 600; color: var(--ink-soft); padding: 8px 6px; border-bottom: 1px solid var(--line); }
+    td { padding: 8px 6px; border-bottom: 1px solid var(--line); }
+    td.n { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .table-wrap { overflow-x: auto; }
+    .pill { font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--grid); color: var(--ink-soft); white-space: nowrap; }
+    .pill.click { background: rgba(247, 105, 2, 0.15); color: var(--bar); }
+
+    .err { background: #FDECEC; color: #8A1C1C; padding: 14px 16px; border-radius: 12px; margin-bottom: 16px; display: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Sponsor Page Stats</h1>
+        <p class="sub">Views and button clicks on the RIT Canstruction sponsor page</p>
+      </div>
+      <span class="live" id="updated">Loading…</span>
+    </header>
+
+    <div class="err" id="err"></div>
+
+    <section class="tiles" aria-label="Totals">
+      <div class="tile"><div class="label">Page views</div><div class="num" id="t-views">0</div><div class="hint">every time the page loads</div></div>
+      <div class="tile"><div class="label">Unique visitors</div><div class="num" id="t-unique">0</div><div class="hint">different browsers</div></div>
+      <div class="tile"><div class="label">QR code scans</div><div class="num" id="t-qr">0</div><div class="hint">views that came from the QR</div></div>
+      <div class="tile"><div class="label">Button clicks</div><div class="num" id="t-clicks">0</div><div class="hint">all tracked buttons</div></div>
+    </section>
+
+    <div class="grid2">
+      <section class="panel">
+        <h2>Clicks by sponsor</h2>
+        <p class="desc">Logo, logo strip, and visit button clicks added together</p>
+        <div id="by-sponsor"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Page views, last 14 days</h2>
+        <p class="desc">Hover a bar for the exact number</p>
+        <div class="cols" id="cols"></div>
+        <div class="xlabels" id="xlabels"></div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <h2>Clicks by button</h2>
+      <p class="desc">Which exact button people pressed</p>
+      <div class="table-wrap"><table><thead><tr><th>Button</th><th>Tracking ID</th><th style="text-align:right">Clicks</th></tr></thead><tbody id="by-button"></tbody></table></div>
+    </section>
+
+    <div class="grid2">
+      <section class="panel">
+        <h2>Where views came from</h2>
+        <p class="desc">qr = scanned the code, link = clicked from another site, direct = typed it or bookmarked</p>
+        <div class="table-wrap"><table><thead><tr><th>Source</th><th style="text-align:right">Views</th></tr></thead><tbody id="by-source"></tbody></table></div>
+      </section>
+
+      <section class="panel">
+        <h2>Recent activity</h2>
+        <p class="desc">Last 25 events, newest first</p>
+        <div class="table-wrap"><table><thead><tr><th>When</th><th>Type</th><th>What</th></tr></thead><tbody id="recent"></tbody></table></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="tip" id="tip" role="tooltip"></div>
+
+  <script>
+    // nice display names for the sponsor ids used in tracking
+    const NAMES = {
+      garlock: "Garlock",
+      iteropus: "Iter Opus",
+      pittsfordfcu: "Pittsford FCU",
+      higherbooking: "Higher Booking",
+      matthewsfields: "Matthews & Fields",
+      trippwells: "TrippWells",
+    };
+
+    // if the server has a password, pass it along (stats.html?key=yourpassword)
+    const key = new URLSearchParams(location.search).get("key") || "";
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+    function render(stats) {
+      // tiles
+      $("t-views").textContent = stats.totals.views.toLocaleString();
+      $("t-unique").textContent = stats.totals.uniqueVisitors.toLocaleString();
+      $("t-qr").textContent = stats.totals.qrScans.toLocaleString();
+      $("t-clicks").textContent = stats.totals.clicks.toLocaleString();
+
+      // clicks by sponsor, every sponsor shows even at 0 so nobody "disappears"
+      const counts = Object.fromEntries(stats.bySponsor.map((r) => [r.sponsor, r.count]));
+      const rows = Object.keys(NAMES).map((id) => ({ id, count: counts[id] || 0 })).sort((a, b) => b.count - a.count);
+      const max = Math.max(1, ...rows.map((r) => r.count));
+      $("by-sponsor").innerHTML = rows.map((r) => `
+        <div class="hbar">
+          <span>${NAMES[r.id]}</span>
+          <div class="track"><div class="fill" style="width:${(r.count / max) * 100}%"></div></div>
+          <span class="val">${r.count}</span>
+        </div>`).join("");
+
+      // views per day
+      const dayMax = Math.max(1, ...stats.viewsByDay.map((d) => d.count));
+      $("cols").innerHTML = stats.viewsByDay.map((d) => `
+        <div class="col" tabindex="0" data-tip="${d.day}: ${d.count} view${d.count === 1 ? "" : "s"}" aria-label="${d.day}: ${d.count} views">
+          <div class="bar" style="height:${(d.count / dayMax) * 100}%"></div>
+        </div>`).join("");
+      $("xlabels").innerHTML = stats.viewsByDay.map((d, i) => {
+        // only label every other day so it doesn't get crowded
+        const [, m, day] = d.day.split("-");
+        return `<span>${i % 2 === 0 ? `${+m}/${+day}` : ""}</span>`;
+      }).join("");
+
+      // clicks by button
+      $("by-button").innerHTML = stats.byButton.length
+        ? stats.byButton.map((b) => `<tr><td>${esc(b.label)}</td><td><span class="pill">${esc(b.target)}</span></td><td class="n">${b.count}</td></tr>`).join("")
+        : `<tr><td colspan="3" class="empty">No clicks yet. Click a button on the sponsor page and it'll show up here.</td></tr>`;
+
+      // sources
+      const src = Object.entries(stats.bySource).sort((a, b) => b[1] - a[1]);
+      $("by-source").innerHTML = src.length
+        ? src.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="n">${v}</td></tr>`).join("")
+        : `<tr><td colspan="2" class="empty">No views yet.</td></tr>`;
+
+      // recent
+      $("recent").innerHTML = stats.recent.length
+        ? stats.recent.map((e) => `<tr>
+            <td>${new Date(e.time).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</td>
+            <td><span class="pill ${e.type}">${e.type}</span></td>
+            <td>${e.type === "click" ? esc(e.label) : "Page view (" + esc(e.source) + ")"}</td>
+          </tr>`).join("")
+        : `<tr><td colspan="3" class="empty">Nothing yet.</td></tr>`;
+
+      $("updated").textContent = "Updated " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+    }
+
+    async function load() {
+      try {
+        const res = await fetch("/api/stats" + (key ? "?key=" + encodeURIComponent(key) : ""), { cache: "no-store" });
+        if (res.status === 401) throw new Error("This stats page needs a key. Open it as stats.html?key=YOUR_KEY");
+        if (!res.ok) throw new Error("Couldn't load stats (" + res.status + ")");
+        render(await res.json());
+        $("err").style.display = "none";
+      } catch (err) {
+        $("err").textContent = err.message.includes("fetch")
+          ? "Can't reach the server. Make sure `node server.js` is running and you opened this page from http://localhost:3000/stats.html"
+          : err.message;
+        $("err").style.display = "block";
+      }
+    }
+
+    // tooltip for the daily bars
+    const tip = $("tip");
+    function showTip(e) {
+      const col = e.target.closest(".col");
+      if (!col) return (tip.style.opacity = 0);
+      tip.textContent = col.dataset.tip;
+      const r = col.getBoundingClientRect();
+      tip.style.left = Math.min(window.innerWidth - tip.offsetWidth - 8, Math.max(8, r.left + r.width / 2 - tip.offsetWidth / 2)) + "px";
+      tip.style.top = r.top - tip.offsetHeight - 8 + "px";
+      tip.style.opacity = 1;
+    }
+    $("cols").addEventListener("mousemove", showTip);
+    $("cols").addEventListener("focusin", showTip);
+    $("cols").addEventListener("mouseleave", () => (tip.style.opacity = 0));
+    $("cols").addEventListener("focusout", () => (tip.style.opacity = 0));
+
+    load();
+    setInterval(load, 10000); // refresh every 10 seconds
+  </script>
+</body>
+</html>
