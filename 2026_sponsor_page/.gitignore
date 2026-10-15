@@ -1,2 +1,2 @@
 # saved views/clicks, the real numbers stay on the server and out of git
-data/analytics.json
+public/data/events.php

@@ -5,8 +5,8 @@
 // so we can tell "10 views from 3 people" apart from "10 views from 10 people".
 
 (function () {
-  // where events get sent. change this if the server lives somewhere else later.
-  const ENDPOINT = window.TRACK_ENDPOINT || "/api/track";
+  // where events get sent (relative, so it works even if the page lives in a subfolder)
+  const ENDPOINT = window.TRACK_ENDPOINT || "api/track.php";
 
   // random id for this browser, made once and reused
   function visitorId() {

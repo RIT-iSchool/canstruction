@@ -214,14 +214,14 @@
 
     async function load() {
       try {
-        const res = await fetch("/api/stats" + (key ? "?key=" + encodeURIComponent(key) : ""), { cache: "no-store" });
+        const res = await fetch("api/stats.php" + (key ? "?key=" + encodeURIComponent(key) : ""), { cache: "no-store" });
         if (res.status === 401) throw new Error("This stats page needs a key. Open it as stats.html?key=YOUR_KEY");
         if (!res.ok) throw new Error("Couldn't load stats (" + res.status + ")");
         render(await res.json());
         $("err").style.display = "none";
       } catch (err) {
         $("err").textContent = err.message.includes("fetch")
-          ? "Can't reach the server. Make sure `node server.js` is running and you opened this page from http://localhost:3000/stats.html"
+          ? "Can't reach the stats. Open this page from the website (or from php -S on your computer), not by double-clicking the file."
           : err.message;
         $("err").style.display = "block";
       }

@@ -6,31 +6,44 @@ A sponsor page for RIT Canstruction (2026 theme: The Three Little Pigs and the B
 
 ```
 2026_sponsor_page/
-├── server.js            the server: shows the pages + saves views/clicks
-├── data/analytics.json  where views/clicks get saved (created automatically)
-└── public/
+└── public/              upload everything in here to the web server
     ├── index.html       the sponsor page (pig, wolf, and house drawings are in the <svg> at the top of <body>)
     ├── stats.html       the stats dashboard
-    └── tracker.js       the bit that sends views/clicks to the server
+    ├── tracker.js       sends views/clicks to api/track.php
+    ├── api/
+    │   ├── config.php   settings (stats password, where data is saved, timezone)
+    │   ├── track.php    saves each view/click
+    │   └── stats.php    adds up the numbers for stats.html
+    └── data/
+        ├── events.php   where views/clicks get saved (created automatically)
+        └── .htaccess    blocks anyone from downloading the data folder
 ```
 
-## Run it on localhost
+The server only needs PHP (7.4 or newer). No Node.js, no database.
 
-You only need Node.js (any version from the last few years). No `npm install`.
+## Put it on the server
+
+1. Upload everything inside `public/` (including the hidden `.htaccess` file in `data/`) to the folder the page should live in.
+2. Make sure the `data/` folder is writable by PHP. On most shared hosts it already is. If clicks don't show up, set the folder's permissions to `755` (or `775`) in the host's file manager.
+3. Open the page, click a button, then open `stats.html` in the same folder. The click should be there.
+
+## Run it on your computer
+
+You need PHP installed (on a Mac: `brew install php`).
 
 ```bash
 cd 2026_sponsor_page
-node server.js
+php -S localhost:8000 -t public
 ```
 
 Then open:
 
-- **Sponsor page:** http://localhost:3000
-- **Stats page:** http://localhost:3000/stats.html (refreshes every 10 seconds)
+- **Sponsor page:** http://localhost:8000
+- **Stats page:** http://localhost:8000/stats.html (refreshes every 10 seconds)
 
-To stop the server, press `Ctrl + C`.
+To stop it, press `Ctrl + C`.
 
-> Open the pages through `http://localhost:3000`. If you double-click `index.html`, the page shows up but views and clicks won't save.
+> Open the pages through `http://localhost:8000`. If you double-click `index.html`, the page shows up but views and clicks won't save.
 
 ## What gets tracked
 
@@ -53,7 +66,15 @@ Tracked buttons right now: each sponsor's logo in the top strip, their big logo,
 
 ## Reset the numbers
 
-Stop the server, delete `data/analytics.json`, and start it again.
+Delete `data/events.php` on the server. A fresh one gets made on the next visit.
+
+## How the data stays private
+
+- `data/events.php` starts with a line of PHP that stops right away, so if someone opens it in a browser they get an empty page instead of the data.
+- `data/.htaccess` also blocks the whole folder on Apache servers.
+- No names or IP addresses are saved, only a random ID per browser.
+- Text that comes in gets cleaned (no `<`, `>`, quotes, etc.) and size-limited, and saving stops if the file ever passes 5 MB.
+- To add a password to the stats page, set `STATS_KEY` in `api/config.php`, then open `stats.html?key=yourpassword`.
 
 ## Editing sponsors
 
@@ -68,6 +89,4 @@ To add a sponsor: copy a sponsor in the list, give it a new `id`, keep `tier: 3`
 ## Before it goes live
 
 1. **Logos:** three logos load from the team's existing `ritcanstruction.org/assets/img/sponsorLogos/` folder. EC4B's loads from their own website, so save a copy of it into that folder and update the path.
-2. **Hosting the tracker:** the tracking only works where `server.js` is running. ritcanstruction.org looks like a static site (plain HTML files), and a static site can't run Node. You have two options:
-   - Host `server.js` on a free Node host (like Render or Railway) or an RIT server, and set `window.TRACK_ENDPOINT` to that server's `/api/track` address before `tracker.js` loads.
-   - Or, if the page has to stay static, swap the tracker for a hosted analytics tool like GoatCounter, which also counts views and named click events.
+2. **QR code:** point it at the page's real address with `?src=qr` on the end (for example `https://example.com/sponsors/?src=qr`) so scans show up on the stats page.
