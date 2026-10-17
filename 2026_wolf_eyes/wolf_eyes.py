@@ -37,7 +37,12 @@ FIRST_MOOD_AFTER = (6, 10)     # first mood after startup
 BLINK_EVERY = (2.5, 6.0)       # seconds between blinks
 DOUBLE_BLINK_CHANCE = 0.2
 AMBIENT_SOUND_EVERY = (25, 45) # random sniff/growl while just wandering
-AMBIENT_SOUNDS = "sniff/*|growl/*|voice/hungry*|voice/big_bad_wolf*|voice/come_closer*"
+AMBIENT_SOUNDS = "sniff/*|growl/*|voice/are_you_ready*|voice/little_pig*"
+
+# When "huff", "puff" and "blow" are said (seconds) and when the line ends, per voice clip,
+# so the eye squeezes land on the words. Clips not listed use DEFAULT_HUFF_TIMING.
+HUFF_TIMINGS = {"huff_puff_3.wav": (2.45, 4.55, 5.97, 8.15)}  # from tools/cut_librivox_lines.py
+DEFAULT_HUFF_TIMING = (0.65, 1.75, 2.8, 4.2)
 VOLUME = 1.0
 
 # Look (cartoon wolf). Sizes are fractions of the screen height so any resolution works.
@@ -146,16 +151,17 @@ def mood_puppy(t, d, st):
 
 
 def mood_huff(t, d, st):
-    # timed to the "Then I'll huff... and I'll puff... and I'll blow your house in!" line
-    if t < 4.4:
-        squeeze = bump(t, 0.65) + bump(t, 1.75)
-        wide = smooth((t - 2.6) / 0.3) * (1 - smooth((t - 4.0) / 0.3))
+    # squeeze on "huff" and "puff", go wide on "blow your house in", then dizzy
+    huff, puff, blow, end = HUFF_TIMINGS.get(st.get("sound"), DEFAULT_HUFF_TIMING)
+    if t < end + 0.2:
+        squeeze = bump(t, huff) + bump(t, puff)
+        wide = smooth((t - blow + 0.2) / 0.3) * (1 - smooth((t - end) / 0.3))
         return dict(u=max(0.0, 0.35 + 0.45 * squeeze - 0.35 * wide),
                     l=max(0.0, 0.15 + 0.40 * squeeze - 0.15 * wide),
                     tilt=0.7 * (1 - wide), pupil=0.7 - 0.3 * wide, iris=1 + 0.1 * wide,
                     gaze=(0.0, 0.0), speed="snappy", blinks=False, lid_rate=22)
     # out of breath: dizzy spinning eyes, going opposite ways
-    k = t - 4.4
+    k = t - end - 0.2
     a = 2 * math.pi * 1.4 * k * max(0.35, 1 - k / 6)
     rad = 0.45 * smooth(k * 2)
     return dict(u=0.25, l=0.1, tilt=-0.4, pupil=0.75, gaze=(0.0, 0.0),
@@ -179,14 +185,14 @@ def mood_stare(t, d, st):
 # Sound patterns are globs inside sounds/, "|" means "any of these".
 MOODS = {
     "angry":      (mood_angry,      (5, 7),     [(0.1, "growl/*")]),
-    "sly":        (mood_sly,        (7, 8),     [(0.0, "sniff/sniff*"), (2.4, "voice/bacon*|voice/hungry*|voice/come_closer*")]),
-    "surprised":  (mood_surprised,  (3.5, 4.5), [(0.0, "voice/whos_there*")]),
+    "sly":        (mood_sly,        (9, 10),    [(0.0, "sniff/sniff*"), (2.4, "voice/turnips*|voice/apple_tree*|voice/nice_apples*|voice/fair*")]),
+    "surprised":  (mood_surprised,  (4.5, 5.0), [(0.0, "voice/here_before_me*")]),
     "sleepy":     (mood_sleepy,     (8, 10),    [(0.0, "snore/*")]),
     "suspicious": (mood_suspicious, (5, 7),     [(0.3, "sniff/*")]),
-    "puppy":      (mood_puppy,      (5.6, 6.0), [(0.2, "voice/little_pig*"), (-1.3, "growl/growl_hellhound*|growl/growl_agitated*")]),
-    "huff":       (mood_huff,       (8, 9),     [(0.0, "voice/huff_puff*")]),
+    "puppy":      (mood_puppy,      (6.8, 7.2), [(0.2, "voice/little_pig*"), (-1.3, "growl/growl_hellhound*|growl/growl_agitated*")]),
+    "huff":       (mood_huff,       (13, 14),     [(0.0, "voice/huff_puff*")]),
     "howl":       (mood_howl,       (6, 8),     [(0.3, "howl/*")]),
-    "stare":      (mood_stare,      (5, 6),     [(0.2, "voice/big_eyes*|voice/come_closer*|voice/big_bad_wolf*")]),
+    "stare":      (mood_stare,      (5, 6),     [(0.2, "voice/are_you_ready*")]),
 }
 MOOD_KEYS = list(MOODS)  # keys 1-9 in this order
 MOOD_WEIGHTS = {"angry": 3, "sly": 3, "surprised": 2, "sleepy": 1.5, "suspicious": 2,
@@ -252,6 +258,7 @@ class Sounds:
         if snd:
             (self.ambient if ambient else self.main).play(snd)
             print(f"  sound: {os.path.relpath(path, SOUND_DIR)}")
+            return os.path.basename(path)
 
     def toggle_mute(self):
         self.muted = not self.muted
@@ -477,7 +484,9 @@ class Brain:
         if self.mood and now - self.t0 >= self.dur:
             self.end_mood(now)
         while self.pending and self.pending[0][0] <= now:
-            self.sounds.play(self.pending.pop(0)[1])
+            played = self.sounds.play(self.pending.pop(0)[1])
+            if played:
+                self.st["sound"] = played
 
         r = {}
         if self.mood:
@@ -611,7 +620,7 @@ def snapshot(out_dir, size=(1024, 600)):
     shots = [("normal", None, 0.0, (0.3, -0.1)), ("blink", None, 0.0, (0.0, 0.0))]
     for name, (_, dur, _) in MOODS.items():
         d = sum(dur) / 2
-        times = {"puppy": [1.5, d - 0.5], "huff": [0.65, 3.0, 5.2], "sleepy": [3.0, 3.6],
+        times = {"puppy": [1.5, d - 0.5], "huff": [0.65, 3.0, 6.0], "sleepy": [3.0, 3.6],
                  "sly": [1.0, 3.5]}.get(name, [2.0])
         shots += [(name, name, t, None) for t in times]
     for i, (label, name, t, gaze) in enumerate(shots):

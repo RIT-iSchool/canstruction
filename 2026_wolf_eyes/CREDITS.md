@@ -23,6 +23,8 @@ https://mixkit.co/license/
 - [Heavy breathing 3.ogg](https://commons.wikimedia.org/wiki/File:Heavy_breathing_3.ogg) (ezwa, via PDSounds): `snore/snore_breath.wav`
 - [Dragon wheeze.ogg](https://commons.wikimedia.org/wiki/File:Dragon_wheeze.ogg) (gregoryweir, via PDSounds): `sniff/huff_wheeze.wav`
 
-## Voice lines
-`sounds/voice/*` are placeholders made with macOS text-to-speech (voice "Ralph", pitched down)
-by `tools/make_voices.sh`.
+## Voice lines (public domain)
+`sounds/voice/*`: the wolf's lines cut from the LibriVox recording of
+[The Story of the Three Little Pigs](https://librivox.org/three-little-pigs-by-l-leslie-brooke) (L. Leslie Brooke),
+read by Denny Sayers. Public domain. Pitched slightly deeper; cut by `tools/cut_librivox_lines.py`.
+The old text-to-speech placeholders are in `extra_sounds/tts_voice/` (not played).
