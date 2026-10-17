@@ -36,6 +36,12 @@ Other keys (plug in a keyboard): `0` back to normal, `b` blink, `s` random sound
    the eyes to autostart. Run the same line again any time to pull the latest version.
 3. `sudo reboot`. The eyes should come up by themselves with no cursor.
 
+For the **first minute after power-on**, each screen shows "LEFT EYE" / "RIGHT EYE", a red
+TOP marker and an arrow pointing to the MIDDLE (the other screen). If it's set up right, both
+TOP markers point up and the two arrows point at each other. Wrong screens → `--swap` (see
+Troubleshooting). Upside down → rotate that screen in the Pi's Screen Configuration. To change
+how long they show, edit `LABEL_SECONDS`; to turn them off add `--no-labels` to `WOLF_ARGS`.
+
 From then on: **power on → eyes start**. A Pi 5 boots as soon as it gets power.
 If the eyes ever crash they restart within 5 s. If a screen is slow to wake up, the
 launcher keeps retrying until both are there.

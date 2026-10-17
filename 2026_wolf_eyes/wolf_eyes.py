@@ -44,6 +44,7 @@ AMBIENT_SOUNDS = "sniff/*|growl/*|voice/are_you_ready*|voice/little_pig*"
 HUFF_TIMINGS = {"huff_puff_3.wav": (2.45, 4.55, 5.97, 8.15)}  # from tools/cut_librivox_lines.py
 DEFAULT_HUFF_TIMING = (0.65, 1.75, 2.8, 4.2)
 VOLUME = 1.0
+LABEL_SECONDS = 60             # after power-on, show "LEFT EYE" / "RIGHT EYE" for this long
 
 # Look (cartoon wolf). Sizes are fractions of the screen height so any resolution works.
 WHITE = (255, 255, 255)
@@ -642,6 +643,51 @@ def snapshot(out_dir, size=(1024, 600)):
         print(path)
 
 
+def seconds_since_boot():
+    try:
+        with open("/proc/uptime") as f:
+            return float(f.read().split()[0])
+    except (OSError, ValueError):
+        return None  # not Linux (e.g. testing on a Mac)
+
+
+class SideLabels:
+    """Big "LEFT EYE" / "RIGHT EYE" sign, a TOP marker and an arrow pointing to the middle,
+    so you can check which screen is which and that they're the right way up."""
+    def __init__(self):
+        pygame.font.init()
+        self.fonts = {}
+
+    def font(self, size):
+        if size not in self.fonts:
+            self.fonts[size] = pygame.font.Font(None, size)
+        return self.fonts[size]
+
+    def text(self, surf, msg, size, center, color=(255, 255, 255)):
+        img = self.font(size).render(msg, True, color)
+        surf.blit(img, img.get_rect(center=center))
+
+    def draw(self, surf, side, secs_left):
+        W, H = surf.get_size()
+        band = pygame.Surface((W, int(H * 0.36)), pygame.SRCALPHA)
+        band.fill((0, 0, 0, 170))
+        surf.blit(band, (0, int(H * 0.32)))
+        self.text(surf, "LEFT EYE" if side == 0 else "RIGHT EYE", int(H * 0.22), (W // 2, int(H * 0.45)))
+        self.text(surf, f"hides in {int(secs_left) + 1}s", int(H * 0.07), (W // 2, int(H * 0.60)), (255, 210, 60))
+        red = (220, 30, 30)
+        # TOP marker
+        a = H * 0.05
+        pygame.draw.polygon(surf, red, [(W / 2, 6), (W / 2 - a, 6 + a * 1.4), (W / 2 + a, 6 + a * 1.4)])
+        self.text(surf, "TOP", int(H * 0.08), (W // 2, int(6 + a * 1.4 + H * 0.05)), red)
+        # arrow toward the middle (the other eye)
+        tip = W - 8 if side == 0 else 8
+        d = -1 if side == 0 else 1
+        y = H * 0.82
+        pygame.draw.polygon(surf, red, [(tip, y), (tip + d * a * 1.4, y - a), (tip + d * a * 1.4, y + a)])
+        pygame.draw.rect(surf, red, pygame.Rect(min(tip + d * a * 1.4, tip + d * a * 4), y - a * 0.35, a * 2.6, a * 0.7))
+        self.text(surf, "MIDDLE", int(H * 0.07), (int(tip + d * a * 6.5), int(y)), red)
+
+
 def main():
     ap = argparse.ArgumentParser(description="Big Bad Wolf eyes")
     ap.add_argument("--mode", choices=["auto", "dual", "span", "preview"], default="auto",
@@ -654,6 +700,8 @@ def main():
                     default=(1024, 600), help="eye size for preview mode (default 1024x600)")
     ap.add_argument("--scale", type=float, default=0.6, help="preview window scale")
     ap.add_argument("--mute", action="store_true")
+    ap.add_argument("--labels", action="store_true", help="show the LEFT/RIGHT labels even if the Pi wasn't just turned on")
+    ap.add_argument("--no-labels", action="store_true", help="never show the LEFT/RIGHT labels")
     ap.add_argument("--no-moods", action="store_true", help="only wander and blink")
     ap.add_argument("--seconds", type=float, default=0, help="quit after this long (testing)")
     ap.add_argument("--snapshot", metavar="DIR", help="save pictures of every mood and exit")
@@ -672,6 +720,15 @@ def main():
     brain = Brain(sounds, now, auto_moods=not args.no_moods)
     clock = pygame.time.Clock()
     started = now
+    # LEFT/RIGHT labels only right after power-on (not when restarted later, e.g. after a crash)
+    uptime = seconds_since_boot()
+    show_labels = not args.no_labels and (args.labels or uptime is None or uptime < 300)
+    labels = None
+    if show_labels:
+        try:
+            labels = SideLabels()
+        except Exception as e:  # never let the labels stop the eyes
+            print(f"Labels unavailable: {e}")
     window_close = getattr(pygame, "WINDOWCLOSE", None)
     print(__doc__.split("Keys:")[1].strip() if "Keys:" in __doc__ else "")
 
@@ -701,6 +758,8 @@ def main():
         for i, eye in enumerate(eyes):
             eye.update(targets[i], dt, rate)
             eye.draw(out.surfaces[i], gaze[i], blink)
+            if labels and now - started < LABEL_SECONDS:
+                labels.draw(out.surfaces[i], i, LABEL_SECONDS - (now - started))
         out.present()
         if args.seconds and now - started > args.seconds:
             running = False
